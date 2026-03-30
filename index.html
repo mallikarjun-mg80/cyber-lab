@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CyberLab — Cybersecurity Learning Platform</title>
+  <meta name="description" content="A TryHackMe-style interactive cybersecurity learning platform covering Networking, Linux, Web Hacking, Active Directory attacks, and more."/>
+  <meta name="theme-color" content="#00ff88"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <link rel="stylesheet" href="css/dashboard.css"/>
+  <link rel="stylesheet" href="css/room.css"/>
+  <link rel="stylesheet" href="css/terminal.css"/>
+  <link rel="stylesheet" href="css/auth.css"/>
+  <style>
+    /* Extra inline overrides */
+    .mb-lg { margin-bottom: var(--space-lg); }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+    .path-filter-btn { transition: all 0.2s; }
+    .rooms-grid { display: flex; flex-direction: column; }
+    .path-section { animation: fadeInUp 0.4s ease; }
+    #page-paths { padding-top: 64px; padding-bottom: 120px; }
+    #page-profile { padding-top: 64px; padding-bottom: 80px; }
+    .room-card { transition: all 0.2s ease; }
+    .room-card:hover { transform: translateX(4px); }
+  </style>
+</head>
+<body>
+
+<!-- Matrix Background -->
+<canvas id="matrix-canvas" aria-hidden="true"></canvas>
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="navbar-inner">
+    <a class="navbar-logo" href="#" onclick="navigateTo('home')" aria-label="CyberLab Home">
+      <div class="logo-icon" aria-hidden="true">⚡</div>
+      Cyber<span>Lab</span>
+    </a>
+
+    <div class="navbar-nav" id="main-nav" role="menubar" style="display:none">
+      <button class="nav-link active" data-page="home" role="menuitem">Dashboard</button>
+      <button class="nav-link" data-page="paths" role="menuitem">Learning Paths</button>
+      <button class="nav-link" data-page="profile" role="menuitem">Profile</button>
+    </div>
+
+    <div class="navbar-actions" id="auth-nav-actions">
+      <div class="xp-badge" id="nav-xp-badge" aria-label="XP and Level" style="display:none">
+        <span>⚡</span>
+        <span id="nav-xp">0 XP</span>
+        <span style="color:var(--text-muted)">|</span>
+        <span id="nav-level">Newbie</span>
+      </div>
+      <span class="nav-username" id="nav-username" style="display:none"></span>
+      <button class="avatar-btn" id="avatar-btn" aria-label="Profile" style="display:none">👤</button>
+      <button class="logout-btn" id="logout-btn" style="display:none" onclick="logoutUser()">⏻ Log Out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div id="page-login" class="auth-page active" role="main">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon" aria-hidden="true">⚡</div>
+      Cyber<span>Lab</span>
+    </div>
+    <div class="auth-header">
+      <div class="auth-title">Welcome Back</div>
+      <div class="auth-subtitle">Sign in to continue your hacking journey</div>
+    </div>
+    <form class="auth-form" id="login-form" onsubmit="handleLogin(event)">
+      <div id="login-error" class="auth-error"></div>
+      <div class="auth-field">
+        <label class="auth-label" for="login-username">Username</label>
+        <div class="auth-input-wrap">
+          <span class="auth-input-icon">👤</span>
+          <input type="text" id="login-username" class="auth-input" placeholder="Enter your username" autocomplete="username" required />
+        </div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="login-password">Password</label>
+        <div class="auth-input-wrap">
+          <span class="auth-input-icon">🔒</span>
+          <input type="password" id="login-password" class="auth-input" placeholder="Enter your password" autocomplete="current-password" required />
+        </div>
+      </div>
+      <button type="submit" class="auth-submit" id="login-submit-btn">🚀 Sign In</button>
+    </form>
+    <div class="auth-switch">
+      Don't have an account? <button class="auth-switch-link" onclick="navigateTo('signup')">Create one free →</button>
+    </div>
+    <div class="auth-badge-row">
+      <div class="auth-badge">🔐 Secure</div>
+      <div class="auth-badge">⚡ 21 Rooms</div>
+      <div class="auth-badge">🏆 Achievements</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SIGNUP PAGE ═══════════ -->
+<div id="page-signup" class="auth-page" role="main">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon" aria-hidden="true">⚡</div>
+      Cyber<span>Lab</span>
+    </div>
+    <div class="auth-header">
+      <div class="auth-title">Create Account</div>
+      <div class="auth-subtitle">Start your cybersecurity learning journey today</div>
+    </div>
+    <form class="auth-form" id="signup-form" onsubmit="handleSignup(event)">
+      <div id="signup-error" class="auth-error"></div>
+      <div class="auth-field">
+        <label class="auth-label" for="signup-username">Username</label>
+        <div class="auth-input-wrap">
+          <span class="auth-input-icon">👤</span>
+          <input type="text" id="signup-username" class="auth-input" placeholder="Choose a username" autocomplete="username" required minlength="3"/>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="signup-email">Email</label>
+        <div class="auth-input-wrap">
+          <span class="auth-input-icon">📧</span>
+          <input type="email" id="signup-email" class="auth-input" placeholder="your@email.com" autocomplete="email" required />
+        </div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="signup-password">Password</label>
+        <div class="auth-input-wrap">
+          <span class="auth-input-icon">🔒</span>
+          <input type="password" id="signup-password" class="auth-input" placeholder="Min. 6 characters" autocomplete="new-password" required minlength="6" oninput="updatePasswordStrength(this.value)"/>
+        </div>
+        <div class="password-strength"><div class="password-strength-fill" id="pw-strength-fill"></div></div>
+      </div>
+      <button type="submit" class="auth-submit" id="signup-submit-btn">⚡ Create Account</button>
+    </form>
+    <div class="auth-switch">
+      Already have an account? <button class="auth-switch-link" onclick="navigateTo('login')">Sign in →</button>
+    </div>
+    <div class="auth-badge-row">
+      <div class="auth-badge">🆓 Free Forever</div>
+      <div class="auth-badge">💾 Local Save</div>
+      <div class="auth-badge">🎖️ Earn Badges</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ HOME PAGE ═══════════ -->
+<main id="page-home" class="page active" role="main">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="container">
+      <div class="hero-content">
+        <!-- Left -->
+        <div>
+          <div class="hero-eyebrow">
+            <span class="dot"></span>
+            Live Learning Environment
+          </div>
+          <h1 class="hero-title">
+            Hack. Defend.<br/>
+            <span class="gradient-text">Level Up.</span>
+          </h1>
+          <p class="hero-subtitle">
+            A hands-on cybersecurity learning platform with interactive rooms, a real terminal simulator, quizzes, and a full curriculum from Beginner to Elite Hacker.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" onclick="navigateTo('paths')" id="start-learning-btn">
+              🚀 Start Learning
+            </button>
+            <button class="btn btn-secondary btn-lg" onclick="navigateTo('room','networking-fundamentals')" id="first-room-btn">
+              Try a Room →
+            </button>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat-item">
+              <div class="hero-stat-num">21+</div>
+              <div class="hero-stat-label">Rooms</div>
+            </div>
+            <div class="hero-stat-item">
+              <div class="hero-stat-num">4</div>
+              <div class="hero-stat-label">Paths</div>
+            </div>
+            <div class="hero-stat-item">
+              <div class="hero-stat-num">∞</div>
+              <div class="hero-stat-label">Terminal</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Animated Terminal -->
+        <div class="hero-terminal animate-float" aria-hidden="true">
+          <div class="hero-terminal-header">
+            <div class="terminal-dot td-red"></div>
+            <div class="terminal-dot td-yellow"></div>
+            <div class="terminal-dot td-green"></div>
+            <span class="terminal-title">hacker@cyberlab: ~</span>
+          </div>
+          <div class="hero-terminal-body" id="hero-terminal-body"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="container">
+
+    <!-- Stats Strip -->
+    <section aria-label="Your Progress">
+      <div class="stats-strip">
+        <div class="card stat-card green">
+          <div class="stat-icon green">⚡</div>
+          <div class="stat-info">
+            <div class="stat-label">Total XP</div>
+            <div class="stat-value">0</div>
+            <div class="stat-sub">Keep grinding!</div>
+          </div>
+        </div>
+        <div class="card stat-card blue">
+          <div class="stat-icon blue">🎖️</div>
+          <div class="stat-info">
+            <div class="stat-label">Current Level</div>
+            <div class="stat-value">Newbie</div>
+            <div class="stat-sub">Level 1</div>
+          </div>
+        </div>
+        <div class="card stat-card red">
+          <div class="stat-icon red">📋</div>
+          <div class="stat-info">
+            <div class="stat-label">Rooms Completed</div>
+            <div class="stat-value">0</div>
+            <div class="stat-sub">of 21 rooms</div>
+          </div>
+        </div>
+        <div class="card stat-card purple">
+          <div class="stat-icon purple">🔥</div>
+          <div class="stat-info">
+            <div class="stat-label">Current Streak</div>
+            <div class="stat-value">3 days</div>
+            <div class="stat-sub">Keep it up!</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+
+      <!-- Left Column -->
+      <div>
+        <!-- Learning Paths -->
+        <div class="section-header">
+          <div class="section-title">Learning Paths</div>
+          <button class="btn btn-ghost btn-sm" onclick="navigateTo('paths')">View All →</button>
+        </div>
+        <div class="paths-grid" id="paths-grid"></div>
+
+        <!-- Recent Activity -->
+        <div class="section-header mt-xl">
+          <div class="section-title">Recently Completed</div>
+        </div>
+        <div id="recent-activity"></div>
+      </div>
+
+      <!-- Right Sidebar -->
+      <div>
+        <!-- Continue Learning -->
+        <div class="sidebar-widget">
+          <div class="section-title mb-lg" style="font-size:1rem">▶ Continue Learning</div>
+          <div id="continue-section"></div>
+        </div>
+
+        <!-- Streak -->
+        <div class="card sidebar-widget">
+          <div id="streak-widget"></div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="card sidebar-widget">
+          <div style="padding:var(--space-md) var(--space-md) 0">
+            <div class="section-title" style="font-size:1rem">🏆 Leaderboard</div>
+          </div>
+          <div style="padding:var(--space-sm) var(--space-md) var(--space-md)" id="leaderboard-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════ PATHS PAGE ═══════════ -->
+<div id="page-paths" class="page">
+  <div class="container">
+    <div style="padding:var(--space-xl) 0 var(--space-lg)">
+      <h1 style="margin-bottom:var(--space-sm)">Learning Paths</h1>
+      <p style="color:var(--text-secondary);margin-bottom:var(--space-xl)">Choose your path and start hacking — earn XP, unlock badges, and level up.</p>
+
+      <!-- Filter Tabs -->
+      <div class="tab-nav" style="margin-bottom:var(--space-xl)" role="tablist">
+        <button class="tab-btn path-filter-btn active" data-filter="all" role="tab">All</button>
+        <button class="tab-btn path-filter-btn" data-filter="pre-security" role="tab">🟢 Pre-Security</button>
+        <button class="tab-btn path-filter-btn" data-filter="defensive" role="tab">🔵 Defensive</button>
+        <button class="tab-btn path-filter-btn" data-filter="offensive" role="tab">🔴 Offensive</button>
+        <button class="tab-btn path-filter-btn" data-filter="advanced" role="tab">🟣 Advanced</button>
+      </div>
+
+      <div id="paths-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ROOM PAGE ═══════════ -->
+<div id="page-room" class="page">
+  <div class="room-layout">
+
+    <!-- Sidebar -->
+    <aside class="room-sidebar" aria-label="Task navigation">
+      <div class="room-sidebar-header">
+        <button class="room-back-btn" onclick="navigateTo('paths')">← Back to Paths</button>
+        <div class="room-sidebar-title" id="room-sidebar-title">Room</div>
+        <div class="room-sidebar-meta" id="room-sidebar-meta"></div>
+      </div>
+      <div class="task-list" id="task-list" role="list"></div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="room-main" role="main">
+      <div id="room-header" class="room-header"></div>
+      <div id="task-content"></div>
+    </main>
+
+    <!-- Right Aside -->
+    <aside class="room-aside" aria-label="Hints and resources">
+      <div id="room-aside-content"></div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ═══════════ PROFILE PAGE ═══════════ -->
+<div id="page-profile" class="page">
+  <div id="profile-container"></div>
+</div>
+
+<!-- ═══════════ TERMINAL PANEL ═══════════ -->
+<div class="terminal-panel hidden-panel" id="terminal-panel" role="complementary" aria-label="Terminal Simulator">
+  <div class="terminal-panel-header">
+    <div class="terminal-dots">
+      <div class="terminal-dot td-red"></div>
+      <div class="terminal-dot td-yellow"></div>
+      <div class="terminal-dot td-green"></div>
+    </div>
+    <span class="terminal-panel-title">hacker@cyberlab — bash</span>
+    <div class="terminal-actions">
+      <button class="terminal-btn" id="terminal-clear" aria-label="Clear terminal">clear</button>
+    </div>
+  </div>
+
+  <div class="terminal-output-area" id="terminal-output" role="log" aria-live="polite" aria-label="Terminal output"></div>
+
+  <div class="terminal-input-area">
+    <span class="terminal-input-prompt" id="terminal-prompt" aria-hidden="true">
+      <span class="t-user">hacker</span><span class="t-symbol">@</span><span class="t-host">cyberlab</span><span class="t-symbol">:~$</span>
+    </span>
+    <input
+      type="text"
+      class="terminal-input"
+      id="terminal-input"
+      placeholder="type a command..."
+      autocomplete="off"
+      spellcheck="false"
+      aria-label="Terminal command input"
+    />
+  </div>
+</div>
+
+<!-- Terminal Toggle Button -->
+<button class="terminal-toggle-btn" id="terminal-toggle" aria-label="Toggle terminal" style="display:none">
+  ⌨️ Terminal
+</button>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
